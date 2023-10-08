@@ -1,0 +1,13 @@
+linters:
+  enable:
+    - gci
+    - revive
+    - gofmt
+    - unparam
+    - exhaustive
+    - errorlint
+    - exhaustruct
+    - gosec
+
+issues:
+  exclude-use-default: false
