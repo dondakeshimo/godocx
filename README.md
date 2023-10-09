@@ -20,20 +20,22 @@ $ go install github.com/dondakeshimo/godocx@latest
 
 ## Usage
 
-(WIP)
-
 ```
 $ godocx -h
-Usage of godocx:
-  -all
-        include all packages
-  -c string
-        comment type (default "all")
-  -d string
-        output directory (default "docs")
-  -f string
-        output format (default "json")
-  -p string
-        package path (default ".")
-  -v    verbose output
+Godocx extracts Go Doc Comment and makes a JSON file.
+
+Usage:
+
+	gofmt [flags] [dirPath ...]
+
+The flags are:
+
+	-o file
+		Write result to the file given path instead of stdout.
+	-h -help
+		Show help.
+
+Godocx supports multiple dirPath which is both absolute and relative path.
+Although, it does not support a wild card, or a three dots syntax like gofmt.
+Please input each dirPaths separated by a space.
 ```
