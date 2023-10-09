@@ -9,34 +9,52 @@ import (
 	"go/token"
 	"os"
 	"regexp"
-	"strings"
 )
 
-// Node represents a node of the Go Doc Comment.
-type Node struct {
+// Value is the documentation for a var or const declaration.
+type Value struct {
 	Name        string   `json:"name"`
-	Kind        string   `json:"kind"`
 	Doc         string   `json:"doc"`
 	Annotations []string `json:"annotations"`
-	Notes       []string `json:"notes"`
 }
 
-// TypeNode represents a type node of the Go Doc Comment.
-type TypeNode struct {
-	Node
-	Consts []*Node `json:"consts"`
-	Vars   []*Node `json:"vars"`
-	Funcs  []*Node `json:"funcs"`
+// Type is the documentation for a type declaration.
+type Type struct {
+	Name        string   `json:"name"`
+	Doc         string   `json:"doc"`
+	Annotations []string `json:"annotations"`
+	Consts      []*Value `json:"consts"`
+	Vars        []*Value `json:"vars"`
+	Funcs       []*Func  `json:"funcs"`
 }
 
-// Package represents a package of the Go Doc Comment.
+// Func is the documentation for a func declaration.
+type Func struct {
+	Name        string   `json:"name"`
+	Doc         string   `json:"doc"`
+	Recv        string   `json:"recv"`
+	Orig        string   `json:"orig"`
+	Level       int      `json:"level"`
+	Annotations []string `json:"annotations"`
+}
+
+// A Note represents a marked comment starting with "MARKER(uid): note body".
+// Any note with a marker of 2 or more upper case [A-Z] letters and a uid of
+// at least one character is recognized. The ":" following the uid is optional.
+type Note struct {
+	UID  string `json:"uid"`
+	Body string `json:"body"`
+}
+
+// Package is the documentation for an entire package.
 type Package struct {
-	Name       string      `json:"name"`
-	ImportPath string      `json:"importPath"`
-	Consts     []*Node     `json:"consts"`
-	Vars       []*Node     `json:"vars"`
-	Funcs      []*Node     `json:"funcs"`
-	Types      []*TypeNode `json:"types"`
+	Name       string             `json:"name"`
+	ImportPath string             `json:"importPath"`
+	Notes      map[string][]*Note `json:"notes"`
+	Consts     []*Value           `json:"consts"`
+	Vars       []*Value           `json:"vars"`
+	Funcs      []*Func            `json:"funcs"`
+	Types      []*Type            `json:"types"`
 }
 
 // main func is the entry point of the program.
@@ -73,90 +91,93 @@ func main() {
 		os.Exit(1)
 	}
 
-	d := doc.New(pkgMap["btime"], ".", doc.AllDecls|doc.AllMethods)
+	d := doc.New(pkgMap["domain"], ".", doc.AllDecls|doc.AllMethods)
 
-	consts := make([]*Node, 0, len(d.Consts))
+	consts := make([]*Value, 0, len(d.Consts))
 	for _, v := range d.Consts {
-		consts = append(consts, &Node{
+		consts = append(consts, &Value{
 			Name:        v.Names[0],
-			Kind:        "const",
 			Doc:         v.Doc,
 			Annotations: extractAnnotations(v.Doc),
-			Notes:       extractNotes(v.Doc),
 		})
 	}
 
-	vars := make([]*Node, 0, len(d.Vars))
+	vars := make([]*Value, 0, len(d.Vars))
 	for _, v := range d.Vars {
-		vars = append(vars, &Node{
+		vars = append(vars, &Value{
 			Name:        v.Names[0],
-			Kind:        "var",
 			Doc:         v.Doc,
 			Annotations: extractAnnotations(v.Doc),
-			Notes:       extractNotes(v.Doc),
 		})
 	}
 
-	Funcs := make([]*Node, 0, len(d.Funcs))
+	Funcs := make([]*Func, 0, len(d.Funcs))
 	for _, v := range d.Funcs {
-		Funcs = append(Funcs, &Node{
+		Funcs = append(Funcs, &Func{
 			Name:        v.Name,
-			Kind:        "func",
 			Doc:         v.Doc,
+			Recv:        v.Recv,
+			Orig:        v.Orig,
+			Level:       v.Level,
 			Annotations: extractAnnotations(v.Doc),
-			Notes:       extractNotes(v.Doc),
 		})
 	}
 
-	types := make([]*TypeNode, 0, len(d.Types))
+	types := make([]*Type, 0, len(d.Types))
 	for _, v := range d.Types {
-		cs := make([]*Node, 0, len(v.Consts))
+		cs := make([]*Value, 0, len(v.Consts))
 		for _, v := range v.Consts {
-			cs = append(cs, &Node{
+			cs = append(cs, &Value{
 				Name:        v.Names[0],
-				Kind:        "const",
 				Doc:         v.Doc,
 				Annotations: extractAnnotations(v.Doc),
-				Notes:       extractNotes(v.Doc),
 			})
 		}
-		vs := make([]*Node, 0, len(v.Vars))
+		vs := make([]*Value, 0, len(v.Vars))
 		for _, v := range v.Vars {
-			vs = append(vs, &Node{
+			vs = append(vs, &Value{
 				Name:        v.Names[0],
-				Kind:        "var",
 				Doc:         v.Doc,
 				Annotations: extractAnnotations(v.Doc),
-				Notes:       extractNotes(v.Doc),
 			})
 		}
-		fs := make([]*Node, 0, len(v.Funcs))
+		fs := make([]*Func, 0, len(v.Funcs))
 		for _, v := range v.Funcs {
-			fs = append(fs, &Node{
+			fs = append(fs, &Func{
 				Name:        v.Name,
-				Kind:        "func",
 				Doc:         v.Doc,
+				Recv:        v.Recv,
+				Orig:        v.Orig,
+				Level:       v.Level,
 				Annotations: extractAnnotations(v.Doc),
-				Notes:       extractNotes(v.Doc),
 			})
 		}
-		types = append(types, &TypeNode{
-			Node: Node{
-				Name:        v.Name,
-				Kind:        "type",
-				Doc:         v.Doc,
-				Annotations: extractAnnotations(v.Doc),
-				Notes:       extractNotes(v.Doc),
-			},
-			Consts: cs,
-			Vars:   vs,
-			Funcs:  fs,
+		types = append(types, &Type{
+			Name:        v.Name,
+			Doc:         v.Doc,
+			Annotations: extractAnnotations(v.Doc),
+			Consts:      cs,
+			Vars:        vs,
+			Funcs:       fs,
 		})
+	}
+
+	notes := make(map[string][]*Note, len(d.Notes))
+	for k, v := range d.Notes {
+		n := make([]*Note, 0, len(v))
+		for _, vv := range v {
+			n = append(n, &Note{
+				UID:  vv.UID,
+				Body: vv.Body,
+			})
+		}
+		notes[k] = n
 	}
 
 	pkg := &Package{
 		Name:       d.Name,
 		ImportPath: d.ImportPath,
+		Notes:      notes,
 		Consts:     consts,
 		Vars:       vars,
 		Funcs:      Funcs,
@@ -182,37 +203,4 @@ func extractAnnotations(comment string) []string {
 	}
 
 	return annotations
-}
-
-// extractNotes extracts notes from the comment.
-func extractNotes(comment string) []string {
-	notes := make([]string, 0)
-	if strings.Contains(comment, "TODO") {
-		notes = append(notes, "TODO")
-	}
-	if strings.Contains(comment, "FIXME") {
-		notes = append(notes, "FIXME")
-	}
-	if strings.Contains(comment, "XXX") {
-		notes = append(notes, "XXX")
-	}
-	if strings.Contains(comment, "BUG") {
-		notes = append(notes, "BUG")
-	}
-	if strings.Contains(comment, "NOTE") {
-		notes = append(notes, "NOTE")
-	}
-	if strings.Contains(comment, "HACK") {
-		notes = append(notes, "HACK")
-	}
-	if strings.Contains(comment, "OPTIMIZE") {
-		notes = append(notes, "OPTIMIZE")
-	}
-	if strings.Contains(comment, "WARNING") {
-		notes = append(notes, "WARNING")
-	}
-	if strings.Contains(comment, "ERROR") {
-		notes = append(notes, "ERROR")
-	}
-	return notes
 }
