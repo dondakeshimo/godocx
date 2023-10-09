@@ -1,13 +1,13 @@
-// Package main is the entry point of the program.
-package main
+// Package godocx is the library for extracting Go documentation.
+package godocx
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
+	"go/build"
 	"go/doc"
 	"go/parser"
 	"go/token"
-	"os"
+	"io/fs"
 	"regexp"
 )
 
@@ -57,41 +57,50 @@ type Package struct {
 	Types      []*Type            `json:"types"`
 }
 
-// main func is the entry point of the program.
-func main() {
-	if len(os.Args) == 1 {
-		fmt.Println("Hello, World!")
-		os.Exit(0)
+// New creates a new Package from the given package name and import path.
+func New(dirPath string) (*Package, error) {
+	// To search target files, use build.ImportDir.
+	buildPkg, err := build.ImportDir(dirPath, build.ImportComment)
+	if err != nil {
+		return nil, err
 	}
 
-	// TODO: Be able to search packages only package's name specified.
-	//   - scan scope can be GOROOT/src, GOPATH/src, or current directory.
-	/*
-		goroot := os.Getenv("GOROOT")
-		fmt.Printf("GOROOT: %s\n", goroot)
-
-		gopath := os.Getenv("GOPATH")
-		fmt.Printf("GOPATH: %s\n", gopath)
-
-		importPath := os.Args[1]
-		buildPkg, err := build.ImportDir(importPath, build.ImportComment)
-		if err != nil {
-			fmt.Println(err)
+	// include tells parser.ParseDir which files to include.
+	// That means the file must be in the build package's GoFiles or CgoFiles
+	// list only (no tag-ignored files, tests, swig or other non-Go files).
+	include := func(info fs.FileInfo) bool {
+		for _, name := range buildPkg.GoFiles {
+			if name == info.Name() {
+				return true
+			}
 		}
-		fmt.Printf("%+v\n", buildPkg)
-	*/
-
-	// Get the directory name from the command line.
-	dir := os.Args[1]
-
-	fset := token.NewFileSet()
-	pkgMap, firstErr := parser.ParseDir(fset, dir, nil, parser.ParseComments)
-	if firstErr != nil {
-		fmt.Println(firstErr)
-		os.Exit(1)
+		for _, name := range buildPkg.CgoFiles {
+			if name == info.Name() {
+				return true
+			}
+		}
+		return false
 	}
 
-	d := doc.New(pkgMap["domain"], ".", doc.AllDecls|doc.AllMethods)
+	// analyze a package with ast.
+	fset := token.NewFileSet()
+	pkgMap, firstErr := parser.ParseDir(fset, dirPath, include, parser.ParseComments)
+	if firstErr != nil {
+		return nil, firstErr
+	}
+
+	// check the number of packages.
+	// ParseDir is given a func `include`, so the number of packages should be 1.
+	if len(pkgMap) == 0 {
+		return nil, errors.New("godocx: no packages found")
+	} else if len(pkgMap) > 1 {
+		return nil, errors.New("godocx: multiple packages found")
+	}
+
+	// analyze a package with doc.
+	d := doc.New(pkgMap[buildPkg.Name], ".", doc.AllDecls|doc.AllMethods)
+
+	// convert doc.Package to Package.
 
 	consts := make([]*Value, 0, len(d.Consts))
 	for _, v := range d.Consts {
@@ -174,7 +183,7 @@ func main() {
 		notes[k] = n
 	}
 
-	pkg := &Package{
+	return &Package{
 		Name:       d.Name,
 		ImportPath: d.ImportPath,
 		Notes:      notes,
@@ -182,15 +191,7 @@ func main() {
 		Vars:       vars,
 		Funcs:      Funcs,
 		Types:      types,
-	}
-
-	b, err := json.Marshal(pkg)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	fmt.Println(string(b))
+	}, nil
 }
 
 var annotationRegExp = regexp.MustCompile(`@(\w+)`)
