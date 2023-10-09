@@ -15,7 +15,7 @@ You can currate Go Doc Comments from various perspectives with output from godoc
 ## Installation
 
 ```
-$ go install github.com/dondakeshimo/godocx@latest
+$ go install github.com/dondakeshimo/godocx/cmd/godocx@latest
 ```
 
 ## Usage
