@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"io/fs"
 	"regexp"
+	"time"
 )
 
 // Value is the documentation for a var or const declaration.
@@ -57,8 +58,32 @@ type Package struct {
 	Types      []*Type            `json:"types"`
 }
 
-// New creates a new Package from the given package name and import path.
-func New(dirPath string) (*Package, error) {
+// DocEnvelope puts packages together.
+// Last output of godocx should be this type.
+type DocEnvelope struct {
+	Timestamp time.Time           `json:"timestamp"`
+	Packages  map[string]*Package `json:"packages"`
+}
+
+// New creates a new DocEnvelope from the given directory paths.
+func New(dirPaths []string) (*DocEnvelope, error) {
+	pkgs := make(map[string]*Package, len(dirPaths))
+	for _, dirPath := range dirPaths {
+		pkg, err := newPackage(dirPath)
+		if err != nil {
+			return nil, err
+		}
+		pkgs[pkg.Name] = pkg
+	}
+
+	return &DocEnvelope{
+		Timestamp: time.Now(),
+		Packages:  pkgs,
+	}, nil
+}
+
+// newPackage creates a new Package from the given package name and import path.
+func newPackage(dirPath string) (*Package, error) {
 	// To search target files, use build.ImportDir.
 	buildPkg, err := build.ImportDir(dirPath, build.ImportComment)
 	if err != nil {
