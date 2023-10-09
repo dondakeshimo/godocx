@@ -17,12 +17,11 @@ type Node struct {
 	Name        string   `json:"name"`
 	Kind        string   `json:"kind"`
 	Doc         string   `json:"doc"`
-	Comment     string   `json:"comment"`
 	Annotations []string `json:"annotations"`
 	Notes       []string `json:"notes"`
 }
 
-// Node represents a type node of the Go Doc Comment.
+// TypeNode represents a type node of the Go Doc Comment.
 type TypeNode struct {
 	Node
 	Consts []*Node `json:"consts"`
