@@ -36,7 +36,7 @@ func main() {
 	// Get the directory name from the command line.
 	dir := os.Args[1]
 
-	pkg, err := godocx.New(dir)
+	pkg, err := godocx.New([]string{dir})
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
