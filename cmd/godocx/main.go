@@ -1,42 +1,60 @@
-// Package main is the entry point of the program.
+/*
+Godocx extracts Go Doc Comment and makes a JSON file.
+
+Usage:
+
+	gofmt [flags] [dirPath ...]
+
+The flags are:
+
+	-o file
+		Write result to the file given path instead of stdout.
+
+Godocx supports multiple dirPath which is both absolute and relative path.
+Although, it does not support a wild card, or a three dots syntax like gofmt.
+Please input each dirPaths separated by a space.
+*/
 package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/dondakeshimo/godocx"
 )
 
+const (
+	usage = `
+Godocx extracts Go Doc Comment and makes a JSON file.
+
+Usage:
+
+	gofmt [flags] [dirPath ...]
+
+The flags are:
+
+	-o file
+		Write result to the file given path instead of stdout.
+
+Godocx supports multiple dirPath which is both absolute and relative path.
+Although, it does not support a wild card, or a three dots syntax like gofmt.
+Please input each dirPaths separated by a space.
+	`
+)
+
 // main func is the entry point of the program.
 func main() {
-	if len(os.Args) == 1 {
-		fmt.Println("Hello, World!")
-		os.Exit(0)
+	flag.Parse()
+	args := flag.Args()
+	if len(args) == 0 {
+		fmt.Println("godocx: at least one argument required.")
+		fmt.Println(usage)
+		os.Exit(1)
 	}
 
-	// TODO: Be able to search packages only package's name specified.
-	//   - scan scope can be GOROOT/src, GOPATH/src, or current directory.
-	/*
-		goroot := os.Getenv("GOROOT")
-		fmt.Printf("GOROOT: %s\n", goroot)
-
-		gopath := os.Getenv("GOPATH")
-		fmt.Printf("GOPATH: %s\n", gopath)
-
-		importPath := os.Args[1]
-		buildPkg, err := build.ImportDir(importPath, build.ImportComment)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Printf("%+v\n", buildPkg)
-	*/
-
-	// Get the directory name from the command line.
-	dir := os.Args[1]
-
-	pkg, err := godocx.New([]string{dir})
+	pkg, err := godocx.New(args)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
